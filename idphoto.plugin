@@ -1,0 +1,11 @@
+#!name = 学信网证件照换图
+#!desc = 上传前把现场照替换为本机注入的证件照；替换失败直接掐断请求（fail-closed）。需先配置 MITM 证书。换照片：Safari 打开 example.com/idphoto。
+
+[Script]
+# 旧版语法（Loon 3.5.1 及之前；新版在 App 内用语法转换器迁移即可，参数不变）
+http-request ^https?:\/\/example\.com\/idphoto script-path=https://raw.githubusercontent.com/1128-66/chsi-idphoto-swap-loonplugin/main/idphoto-picker.js,tag=本机选图页,requires-body=true,timeout=60,enable=true
+http-request ^https?:\/\/chsi-idphotosrv\.oss-cn-shanghai\.aliyuncs\.com script-path=https://raw.githubusercontent.com/1128-66/chsi-idphoto-swap-loonplugin/main/idphoto-swap.request.js,tag=学信网换图,requires-body=true,binary-body-mode=true,timeout=30,enable=true
+http-response ^https?:\/\/chsi-idphotosrv\.oss-cn-shanghai\.aliyuncs\.com script-path=https://raw.githubusercontent.com/1128-66/chsi-idphoto-swap-loonplugin/main/idphoto-swap.response.js,tag=学信网回执,timeout=30,enable=true
+
+[MITM]
+hostname = chsi-idphotosrv.oss-cn-shanghai.aliyuncs.com, example.com
