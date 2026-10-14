@@ -74,12 +74,7 @@ https://cdn.jsdelivr.net/gh/1128-66/chsi-idphoto-swap-loonplugin@main/idphoto.pl
 > <img width="300" alt="IMG_3259" src="https://github.com/user-attachments/assets/0a4ea187-d60d-476e-90bb-13757c7ab2a9" />
 
 
-两种注入方式：
-
-| 按钮 | 行为 | 有效期 | 适用 |
-|---|---|---|---|
-| **选择照片（存本机）** | 照片只存进手机（$persistentStore），不出本机 | 长期，直到清除 | 日常主力 |
-| **☁️ 云端直链上传（72 小时）** | 直传 litterbox 图床，脚本只拉一次直链 | 72 小时 | 临时换图 / 换机测试 |
+照片只存进手机（$persistentStore），不出本机、不上传任何服务器，长期有效直到清除。
 
 ### 第 5 步 · 实测采集
 
@@ -122,8 +117,7 @@ https://cdn.jsdelivr.net/gh/1128-66/chsi-idphoto-swap-loonplugin@main/idphoto.pl
 <details>
 <summary>隐私：照片会传到别处吗？</summary>
 
-「存本机」模式照片只存在你手机的 Loon 持久化存储里，不上传任何服务器；
-「云端直链」模式会把照片传到 litterbox 图床（公开可访问、72 小时后自动删除），介意请用存本机模式。
+照片只存在你手机的 Loon 持久化存储里，不上传任何服务器。
 </details>
 
 ## 安卓能不能用？
