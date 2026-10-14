@@ -9,7 +9,7 @@
  * 端点（浏览器访问 example.com/idphoto 即可）：
  *   GET  /idphoto        → 返回选图页（$done({response}) 伪造响应，Loon 官方支持）
  *   POST /idphoto-set    → 页面把压缩后的照片 POST 回来 → 存 $persistentStore
- *   POST /idphoto-seturl → 存图床直链（litterbox 72h，页面直传）
+ *   POST /idphoto-set    → 页面把压缩后的照片 POST 回来 → 存 $persistentStore
  *   GET  /idphoto-get    → 查看当前已存照片的摘要
  *   POST /idphoto-clear  → 清除已存照片（换回 PHOTO_B64 / PHOTO_URL 模式）
  *
@@ -26,9 +26,7 @@
 var HOST_PATH = "/idphoto";          // 匹配前缀
 var MIN_SIZE = 1024, MAX_SIZE = 1048576;   // 与 OSS policy 一致
 
-// 照片去向二选一（页面按钮）：
-//   "选择照片（存本机）"：存进 $persistentStore，照片不离机（主力）
-//   "云端直链上传"：直传 litterbox 图床（72h 有效），仅存直链，无需任何凭证
+// 照片去向：存进 $persistentStore，照片不离机
 // ================================================
 
 function log(m) { console.log("[idphoto-picker] " + m); }
@@ -225,22 +223,20 @@ var PAGE_HTML = [
 '</style></head><body>',
 '<div class="card">',
 '  <h1>证件照注入</h1>',
-'  <p class="sub">选照片 → 自动压缩 → 按所选方式注入<br>本机 = 长期有效 · 直链 = 上传到图床 72 小时有效</p>',
+'  <p class="sub">选照片 → 自动压缩 → 存入本机<br>长期有效，照片不离机</p>',
 '  <input type="file" id="f" accept="image/*">',
 '  <label class="btn" for="f">选择照片（存本机）</label>',
-'  <button class="ghost wide" id="url">☁️ 云端直链上传（72 小时）</button>',
 '  <div id="st"></div>',
 '  <div id="cur">加载中…</div>',
 '  <button class="ghost" id="clr">清除已存照片</button>',
 '</div>',
 '<script>',
-'  var MODE = "local";',
 '  var st = document.getElementById("st"), cur = document.getElementById("cur");',
 '  function loadCur(){',
 '    fetch("/idphoto-get").then(function(r){return r.json();}).then(function(m){',
 '      var txt = "存储" + (m.storage || "未知");',
 '      if (m && m.md5) {',
-'        txt = (m.mode === "url" ? "当前：直链 " : "当前：本机 ") + Math.round(m.size/1024) + "KB · " + m.md5.slice(0,8) + "… · " + txt;',
+'        txt = "当前：本机 " + Math.round(m.size/1024) + "KB · " + m.md5.slice(0,8) + "… · " + txt;',
 '      } else { txt = "当前：未设置 · " + txt; }',
 '      cur.textContent = txt;',
 '    }).catch(function(){ cur.textContent = "当前：未知"; });',
@@ -249,10 +245,8 @@ var PAGE_HTML = [
 '  function postJSON(path, obj){',
 '    return fetch(path, {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(obj)}).then(function(r){ return r.json(); });',
 '  }',
-'  document.getElementById("url").addEventListener("click", function(){ MODE = "url"; document.getElementById("f").click(); });',
 '  document.getElementById("f").addEventListener("change", function(){',
 '    var file = this.files[0]; if (!file) return;',
-'    var mode = MODE; MODE = "local";',
 '    st.textContent = "处理中…";',
 '    compress(file).then(function(blob){',
 '      return new Promise(function(res, rej){',
@@ -265,27 +259,12 @@ var PAGE_HTML = [
 '      return postJSON("/idphoto-md5", {b64:p.b64, size:p.size, name:file.name}).then(function(m){',
 '        if (!m.ok) throw new Error(m.err || "校验失败");',
 '        p.md5 = m.md5;',
-'        if (mode === "url") {',
-'          st.textContent = "上传到图床（72h）中…";',
-'          var fd = new FormData();',
-'          fd.append("reqtype", "fileupload");',
-'          fd.append("time", "72h");',
-'          fd.append("fileToUpload", p.blob, "photo.jpg");',
-'          return fetch("https://litterbox.catbox.moe/resources/internals/api.php", {method:"POST", body: fd})',
-'            .then(function(r){ return r.text(); })',
-'            .then(function(url){',
-'              url = url.trim();',
-'              if (url.indexOf("https://litter.catbox.moe/") !== 0) throw new Error("图床返回异常: " + url.slice(0, 80));',
-'              return postJSON("/idphoto-seturl", {url: url, md5: p.md5, size: p.size, name: file.name});',
-'            });',
-'        }',
-'        // 本机模式：直接 POST 回 /idphoto-set 存进 $persistentStore',
+'        // 直接 POST 回 /idphoto-set 存进 $persistentStore',
 '        return postJSON("/idphoto-set", {b64:p.b64, size:p.size, name:file.name});',
 '      });',
 '    }).then(function(m){',
 '      var tail = " · MD5 " + m.md5.slice(0,8) + "…";',
-'      st.textContent = m.ok ? ("✅ " + (m.mode === "url" ? ("云端直链已设置（72h 内有效）：" + m.size + "B" + tail)',
-'                                  : ("已存入本机：" + m.size + "B" + tail)))',
+'      st.textContent = m.ok ? ("✅ 已存入本机：" + m.size + "B" + tail)',
 '                            : ("❌ " + (m.err || "失败"));',
 '      loadCur();',
 '    }).catch(function(e){ st.textContent = "❌ " + e; });',
@@ -376,7 +355,7 @@ function main() {
     return;
   }
 
-  // --- 校验 + 算 MD5（云端模式下页面拿去直推 Gist） ---
+  // --- 校验 + 算 MD5（存图前先校验，坏照片进不了库） ---
   if (path.indexOf(HOST_PATH + "-md5") === 0) {
     var v5 = validateUpload($request.body || "");
     if (v5.error) { respJson(v5.error.code, v5.error.obj); return; }
@@ -385,8 +364,7 @@ function main() {
     return;
   }
 
-  // --- 存照片（本机模式；云端未配置时的回退） ---
-  // 精确匹配：不能写成 indexOf(HOST_PATH + "-set") === 0，否则会把 -seturl 截胡
+  // --- 存照片 ---
   if (path === HOST_PATH + "-set") {
     var v = validateUpload($request.body || "");
     if (v.error) { respJson(v.error.code, v.error.obj); return; }
@@ -407,33 +385,6 @@ function main() {
     return;
   }
 
-  // --- 存云端直链（litterbox 72h；换图脚本拉原始字节并校验 MD5） ---
-  if (path.indexOf(HOST_PATH + "-seturl") === 0) {
-    var body2 = $request.body;
-    if (!body2) { respJson(400, { ok: false, err: "没有请求体（requires-body 没开？）" }); return; }
-    var raw2 = (typeof body2 === "string") ? body2 : bytesToText(body2);
-    var p2;
-    try { p2 = JSON.parse(String(raw2)); } catch (e) { respJson(400, { ok: false, err: "载荷解析失败: " + e }); return; }
-    var u = String(p2.url || "");
-    var md52 = String(p2.md5 || "").toLowerCase();
-    var size2 = parseInt(p2.size, 10) || 0;
-    if (u.indexOf("https://") !== 0) { respJson(400, { ok: false, err: "载荷里没有合法的 https 直链" }); return; }
-    if (!/^[0-9a-f]{32}$/.test(md52)) { respJson(400, { ok: false, err: "MD5 缺失或格式不对（先走 /idphoto-md5 校验）" }); return; }
-    if (size2 < MIN_SIZE || size2 > MAX_SIZE) { respJson(400, { ok: false, err: "照片 " + size2 + "B 超出 OSS policy 范围" }); return; }
-    if (!LS.put("idphoto_url", u)) {
-      respJson(500, { ok: false, err: "idphoto_url 写入存储失败（后端：" + LS.backend() + "）" }); return;
-    }
-    LS.put("idphoto_md5", md52);
-    LS.put("idphoto_meta", JSON.stringify({
-      url: u, md5: md52, size: size2,
-      name: String(p2.name || "photo"), mode: "url", time: new Date().toISOString()
-    }));
-    log("✅ 直链已存入：" + u);
-    notify("云端直链已设置 ✅", size2 + "B · 72h 有效 · " + md52.slice(0, 8) + "…");
-    respJson(200, { ok: true, md5: md52, size: size2, mode: "url" });
-    return;
-  }
-
   // --- 查询 ---
   if (path.indexOf(HOST_PATH + "-get") === 0) {
     var raw = sGet("idphoto_meta");
@@ -442,7 +393,6 @@ function main() {
     var stOk = sPut("idphoto_selftest", "ok") && sGet("idphoto_selftest") === "ok";
     sDel("idphoto_selftest");
     m.storage = stOk ? ("可用（" + LS.backend() + "）") : "不可用（此上下文读写失败）";
-    if (m.url) m.mode = "url";
     respJson(200, m);
     return;
   }
