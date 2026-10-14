@@ -61,10 +61,11 @@ t("PAGE_HTML：含表单/上传端点/清除端点/白名单外部资源", () =>
   assert.ok(PAGE_HTML.includes('"/idphoto-get"'), "没有查询端点");
   assert.ok(PAGE_HTML.includes('"/idphoto-clear"'), "没有清除端点");
   assert.ok(PAGE_HTML.includes('"/idphoto-md5"'), "没有校验端点");
-  assert.ok(PAGE_HTML.includes('"/idphoto-seturl"'), "没有直链端点");
-  assert.ok(PAGE_HTML.includes('litterbox.catbox.moe'), "没有图床上传域名");
-  // 外部资源白名单：example.com（本机）+ api.github.com（云端直推）+ litterbox/litter.catbox.moe（图床）
-  const WHITELIST = ["example\\.com", "api\\.github\\.com", "litterbox\\.catbox\\.moe", "litter\\.catbox\\.moe"];
+  // 直链模式已移除：页面不得再引用图床/直链端点
+  assert.ok(!PAGE_HTML.includes("litterbox"), "不应再引用图床");
+  assert.ok(!PAGE_HTML.includes("seturl"), "不应再有直链端点");
+  // 外部资源白名单：页面全部为相对路径请求，不应引用任何外部资源
+  const WHITELIST = ["example\\.com"];
   let cleaned = PAGE_HTML;
   for (const w of WHITELIST) cleaned = cleaned.replace(new RegExp("https?://" + w, "g"), "");
   assert.ok(!/https?:\/\//.test(cleaned), "页面引用了白名单外的外部资源");
