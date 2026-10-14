@@ -35,8 +35,7 @@ Content-Length 显式重算。**替换条件不满足时直接掐断请求（fai
 
 从 App Store 安装并打开，首次启动授予 VPN 权限。
 
-> 📷 截图位：Loon 主界面
-> （`docs/img/01-home.png` 待补充）
+> <img width="1290" height="2796" alt="IMG_3257" src="https://github.com/user-attachments/assets/de96e0d6-2881-4479-8df3-752876644dad" />
 
 ### 第 2 步 · 生成并信任 MITM 证书（一次性）
 
@@ -44,8 +43,7 @@ Content-Length 显式重算。**替换条件不满足时直接掐断请求（fai
 2. 系统设置 → **已下载的描述文件** → 安装
 3. 系统设置 → **通用** → **关于本机** → **证书信任设置** → 把 Loon 根证书打开**完全信任**
 
-> 📷 截图位：证书信任设置页面
-> （`docs/img/02-trust.png` 待补充）
+><img width="1290" height="2796" alt="IMG_3256" src="https://github.com/user-attachments/assets/8c41b40d-4761-4b11-bc22-ae64a5d561f2" />
 
 ### 第 3 步 · 导入插件
 
@@ -61,8 +59,8 @@ https://raw.githubusercontent.com/1128-66/chsi-idphoto-swap-loonplugin/main/idph
 https://cdn.jsdelivr.net/gh/1128-66/chsi-idphoto-swap-loonplugin@main/idphoto.plugin
 ```
 
-> 📷 截图位：插件列表里已启用本插件
-> （`docs/img/03-plugin.png` 待补充）
+> <img width="1290" height="2796" alt="IMG_3258" src="https://github.com/user-attachments/assets/6bfcd619-2a2c-46c7-b12c-2ae99afc8ed3" />
+
 
 > **Loon 新版本提示**：新版 Loon 会提示"旧版语法"，用 App 内的语法转换器迁移即可，参数不变。
 
@@ -73,8 +71,8 @@ https://cdn.jsdelivr.net/gh/1128-66/chsi-idphoto-swap-loonplugin@main/idphoto.pl
 3. 点 **选择照片（存本机）**，从相册选证件照，页面自动压缩到 1MB 内并存入手机
 4. 看到「✅ 已存入本机：xxx B · MD5 …」即成功
 
-> 📷 截图位：选图页"已存入本机"状态
-> （`docs/img/04-picker.png` 待补充）
+> <img width="1290" height="2796" alt="IMG_3259" src="https://github.com/user-attachments/assets/0a4ea187-d60d-476e-90bb-13757c7ab2a9" />
+
 
 两种注入方式：
 
@@ -85,14 +83,14 @@ https://cdn.jsdelivr.net/gh/1128-66/chsi-idphoto-swap-loonplugin@main/idphoto.pl
 
 ### 第 5 步 · 实测采集
 
-正常打开学信网 App 走图像采集流程，现场拍照上传的瞬间会被替换：
+正常打开学信网 App 走图像采集流程，扫描人脸后点击使用原图确定，现场拍照上传的瞬间会被替换：
 
 - 通知栏弹「**已替换 ✅**」→ 上传的是你注入的证件照
 - 通知栏弹「**🔒 服务端存的就是本地图**」→ ETag 与注入照片 MD5 一致，铁证
 - 通知栏弹「**已掐断请求 ⛔**」→ 替换条件不满足（fail-closed），**原图未上传**，检查插件是否启用/照片是否已注入后重试
 
-> 📷 截图位：通知栏「已替换」通知
-> （`docs/img/05-notify.png` 待补充）
+> <img width="1290" height="2796" alt="IMG_3255" src="https://github.com/user-attachments/assets/dbf8cd4e-db25-43de-bbe7-74793a0c5a17" />
+
 
 ---
 
