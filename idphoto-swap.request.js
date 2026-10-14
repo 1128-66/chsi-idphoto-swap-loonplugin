@@ -17,10 +17,8 @@
 // 照片来源（按优先级自动选择，iPhone 全程自用，无需电脑）：
 //   ① 本机选图页"存本机"：Safari 打开 example.com/idphoto 选照片 → 存 $persistentStore，
 //      照片只存在自己手机里，无需任何配置（主力模式）
-//   ② 本机选图页"云端直链"：页面直传 litterbox 图床（72h 有效），直链存进存储，
-//      适合临时换图/多设备同步场景
-//   ③ PHOTO_URL : 照片载荷 URL（一般留空；自用已不需要 Gist 云端注入）
-//   ④ PHOTO_B64 : 照片 Base64 兜底（用 注入照片.py 生成后粘贴，仅在没 iPhone 时用）
+//   ② PHOTO_URL : 照片载荷 URL（一般留空；自用已不需要 Gist 云端注入）
+//   ③ PHOTO_B64 : 照片 Base64 兜底（用 注入照片.py 生成后粘贴，仅在没 iPhone 时用）
 var PHOTO_B64 = "";
 var PHOTO_URL = "";
 
@@ -119,61 +117,6 @@ function b64ToBytes(b64) {
     if (bits >= 8) { bits -= 8; out[o++] = (buf >> bits) & 0xff; }
   }
   return out.subarray(0, o);
-}
-
-function b64FromBytes(u8) {
-  var out = "", i;
-  for (i = 0; i < u8.length; i += 3) {
-    var b0 = u8[i], b1 = i + 1 < u8.length ? u8[i + 1] : 0, b2 = i + 2 < u8.length ? u8[i + 2] : 0;
-    out += B64TAB.charAt(b0 >> 2) + B64TAB.charAt(((b0 & 3) << 4) | (b1 >> 4));
-    out += (i + 1 < u8.length) ? B64TAB.charAt(((b1 & 15) << 2) | (b2 >> 6)) : "=";
-    out += (i + 2 < u8.length) ? B64TAB.charAt(b2 & 63) : "=";
-  }
-  return out;
-}
-
-// ---------- MD5（与选图页同源的全生成式实现） ----------
-var MD5_S = [7, 12, 17, 22, 7, 12, 17, 22, 7, 12, 17, 22, 7, 12, 17, 22,
-             5, 9, 14, 20, 5, 9, 14, 20, 5, 9, 14, 20, 5, 9, 14, 20,
-             4, 11, 16, 23, 4, 11, 16, 23, 4, 11, 16, 23, 4, 11, 16, 23,
-             6, 10, 15, 21, 6, 10, 15, 21, 6, 10, 15, 21, 6, 10, 15, 21];
-var MD5_K = (function () {
-  var k = new Array(64);
-  for (var i = 0; i < 64; i++) k[i] = Math.floor(Math.abs(Math.sin(i + 1)) * 4294967296);
-  return k;
-})();
-function md5Hex(u8) {
-  var n = u8.length, words = [], i;
-  for (i = 0; i < n; i++) words[i >> 2] = (words[i >> 2] || 0) | (u8[i] << ((i & 3) << 3));
-  words[n >> 2] = (words[n >> 2] || 0) | (0x80 << ((n & 3) << 3));
-  var total = (((n + 8) >> 6) + 1) << 4;
-  for (i = (n >> 2) + 1; i < total; i++) words[i] = 0;
-  words[total - 2] = n << 3;
-  words[total - 1] = 0;
-  var a = 1732584193, b = -271733879, c = -1732584194, d = 271733878;
-  for (i = 0; i < total; i += 16) {
-    var A = a, B = b, C = c, D = d, f, g, s, rot, j;
-    for (j = 0; j < 64; j++) {
-      if (j < 16)      { f = (b & c) | (~b & d);      g = j; }
-      else if (j < 32) { f = (d & b) | (~d & c);      g = (5 * j + 1) & 15; }
-      else if (j < 48) { f = b ^ c ^ d;               g = (3 * j + 5) & 15; }
-      else             { f = c ^ (b | ~d);            g = (7 * j) & 15; }
-      f = (f + a + MD5_K[j] + words[i + g]) | 0;
-      s = MD5_S[j];
-      rot = ((f << s) | (f >>> (32 - s))) | 0;
-      var nb = (b + rot) | 0;
-      a = d; d = c; c = b; b = nb;
-    }
-    a = (a + A) | 0; b = (b + B) | 0; c = (c + C) | 0; d = (d + D) | 0;
-  }
-  var out = "", w = [a, b, c, d], k;
-  for (i = 0; i < 4; i++) {
-    for (k = 0; k < 4; k++) {
-      var byte = (w[i] >>> (k * 8)) & 255;
-      out += (byte < 16 ? "0" : "") + byte.toString(16);
-    }
-  }
-  return out;
 }
 
 // ==================== 通用存储层（根因修复版） ====================
@@ -294,9 +237,8 @@ function parsePhotoPayload(text) {
 
 // ---------- 取照片 ----------
 // 优先级：① 本机选图页存的照片（$persistentStore 里的 idphoto_b64，支持分片）
-//         ② 本机选图页存的图床直链（idphoto_url，litterbox 72h）
-//         ③ PHOTO_URL（GitHub 云端注入 / 自托管）
-//         ④ PHOTO_B64（手工注入）
+//         ② PHOTO_URL（GitHub 云端注入 / 自托管）
+//         ③ PHOTO_B64（手工注入）
 function storeReadBig(key) {
   // 分片格式：idphoto_b64_c = 分片数，idphoto_b64_0..N-1 = 各分片
   var cnt = parseInt(LS.get(key + "_c") || "0", 10);
@@ -308,30 +250,6 @@ function storeReadBig(key) {
   return LS.get(key) || "";   // 兼容旧的单 key 写法
 }
 
-// 直链模式：拉原始字节 → 按 latin1 还原 → MD5 校验 → 编回 Base64 走统一管线。
-// 若引擎把响应体按 UTF-8 解码过（二进制损坏），MD5 校验会拦下并 fail-closed。
-function fetchFromUrl(url, md5, callback, label) {
-  log("从" + label + "拉取照片字节 ...");
-  $httpClient.get({ url: url, headers: {} }, function (status, respHeaders, respBody) {
-    if (status !== 200 || !respBody) {
-      callback(null, label + "拉取失败 HTTP " + status);
-      return;
-    }
-    var bytes = new Uint8Array(respBody.length);
-    for (var i = 0; i < respBody.length; i++) bytes[i] = respBody.charCodeAt(i) & 0xff;
-    if (md5) {
-      var got = md5Hex(bytes);
-      if (got !== md5) {
-        callback(null, label + "内容校验失败（MD5 " + got.slice(0, 8) + "… ≠ 期望 " + md5.slice(0, 8) +
-          "…，直链过期/内容被改/引擎按 UTF-8 解码了二进制？）");
-        return;
-      }
-    }
-    log("✅ " + label + "拉取成功：" + bytes.length + "B" + (md5 ? "，MD5 校验通过" : "，无期望 MD5，跳过校验"));
-    callback({ b64: b64FromBytes(bytes), md5: md5 }, null);
-  });
-}
-
 function withPhoto(callback) {
   var sb64 = "", smd5 = "";
   try {
@@ -341,13 +259,6 @@ function withPhoto(callback) {
   if (sb64) {
     log("照片来源：本机选图页（" + LS.backend() + "）");
     callback({ b64: sb64, md5: smd5 }, null);
-    return;
-  }
-
-  var surl = LS.get("idphoto_url");
-  if (surl) {
-    log("照片来源：本机云端直链（" + LS.backend() + "）");
-    fetchFromUrl(surl, smd5, callback, "本机直链");
     return;
   }
 
@@ -367,7 +278,7 @@ function withPhoto(callback) {
     return;
   }
   if (PHOTO_B64) { callback({ b64: PHOTO_B64, md5: PHOTO_MD5 }, null); return; }
-  callback(null, "没有配置照片（本机存储/直链/PHOTO_URL/PHOTO_B64 都为空）");
+  callback(null, "没有配置照片（本机存储/PHOTO_URL/PHOTO_B64 都为空）");
 }
 
 // ---------- 主流程 ----------
